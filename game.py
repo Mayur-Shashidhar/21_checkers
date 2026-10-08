@@ -1,11 +1,12 @@
 from board import initial_board, move_piece, SIZE
-from rules import simple_move, capture_move, promote
+from rules import simple_move, capture_move, promote, has_legal_moves, has_captures, has_captures_for_piece
 
 
 class Checkers:
     def __init__(self):
         self.board = initial_board()
         self.player = "R"
+        self.multi_piece = None
 
     def print_board(self):
         print("\n   " + " ".join(str(c) for c in range(SIZE)))
@@ -16,6 +17,10 @@ class Checkers:
         print("Checkers — move: sr sc er ec")
         while True:
             self.print_board()
+            if not self.multi_piece and not has_legal_moves(self.board, self.player):
+                winner = "B" if self.player == "R" else "R"
+                print(f"{winner} wins!")
+                return
             raw = input(f"{self.player}> ").strip().lower().split()
             if raw == ["q"]:
                 return
@@ -35,13 +40,37 @@ class Checkers:
                 continue
 
             start, end = (sr, sc), (er, ec)
-            if capture_move(self.board, self.player, start, end):
-                move_piece(self.board, start, end)
-            elif simple_move(self.board, self.player, start, end):
-                move_piece(self.board, start, end)
-            else:
+            piece = self.board[sr][sc]
+            if self.multi_piece and start != self.multi_piece:
                 print("Invalid move.")
                 continue
 
-            promote(self.board)
-            self.player = "B" if self.player == "R" else "R"
+            if has_captures(self.board, self.player):
+                if capture_move(self.board, self.player, start, end):
+                    mid_r, mid_c = (sr + er) // 2, (sc + ec) // 2
+                    captured = self.board[mid_r][mid_c]
+                    self.board[mid_r][mid_c] = "."
+                    move_piece(self.board, start, end)
+                    promoted = promote(self.board)
+                    print(f"{piece} moved from ({sr}, {sc}) to ({er}, {ec}) and captured {captured} at ({mid_r}, {mid_c}).")
+                    if promoted:
+                        print(f"Piece at ({er}, {ec}) was promoted to {self.board[er][ec]}!")
+                    if has_captures_for_piece(self.board, self.player, end):
+                        self.multi_piece = end
+                        print(f"Multi-capture: Must continue capturing with {self.board[er][ec]} at ({er}, {ec}).")
+                    else:
+                        self.multi_piece = None
+                        self.player = "B" if self.player == "R" else "R"
+                else:
+                    print("Invalid move.")
+                    continue
+            elif simple_move(self.board, self.player, start, end):
+                move_piece(self.board, start, end)
+                promoted = promote(self.board)
+                print(f"{piece} moved from ({sr}, {sc}) to ({er}, {ec}).")
+                if promoted:
+                    print(f"Piece at ({er}, {ec}) was promoted to {self.board[er][ec]}!")
+                self.player = "B" if self.player == "R" else "R"
+            else:
+                print("Invalid move.")
+                continue
